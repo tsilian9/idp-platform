@@ -1,0 +1,19 @@
+# OS files
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node/Frontend
+node_modules/
+dist/
+.env
+
+# Infrastructure
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
