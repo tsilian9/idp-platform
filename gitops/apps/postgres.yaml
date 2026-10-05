@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: idp-test-environment
+spec:
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15
+        env:
+        - name: POSTGRES_USER
+          value: idp_user
+        - name: POSTGRES_PASSWORD
+          value: idp_pass
+        - name: POSTGRES_DB
+          value: idp_db
+        ports:
+        - containerPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: idp-test-environment
+spec:
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
