@@ -1,0 +1,78 @@
+- name: Bootstrap K8s Cluster
+  hosts: localhost
+  connection: local
+  tasks:
+    - name: Create namespaces
+      kubernetes.core.k8s:
+        name: "{{ item }}"
+        api_version: v1
+        kind: Namespace
+        state: present
+      loop:
+        - argocd
+        - monitoring
+        - vault
+
+    - name: Add Helm repos
+      kubernetes.core.helm_repository:
+        name: "{{ item.name }}"
+        repo_url: "{{ item.url }}"
+        force_update: true
+      loop:
+        - { name: 'argo', url: 'https://argoproj.github.io/argo-helm' }
+        - { name: 'prometheus-community', url: 'https://prometheus-community.github.io/helm-charts' }
+        - { name: 'grafana', url: 'https://grafana.github.io/helm-charts' }
+        - { name: 'hashicorp', url: 'https://helm.releases.hashicorp.com' }
+
+    - name: Install ArgoCD
+      kubernetes.core.helm:
+        name: argocd
+        chart_ref: argo/argo-cd
+        release_namespace: argocd
+        create_namespace: true
+        wait: true
+        state: present
+
+    - name: Install Prometheus & Grafana Stack
+      kubernetes.core.helm:
+        name: kube-prometheus-stack
+        chart_ref: prometheus-community/kube-prometheus-stack
+        release_namespace: monitoring
+        create_namespace: true
+        wait: true
+        state: present
+
+    - name: Install Loki Stack (Loki + Promtail)
+      kubernetes.core.helm:
+        name: loki
+        chart_ref: grafana/loki-stack
+        release_namespace: monitoring
+        create_namespace: true
+        wait: true
+        state: present
+        values:
+          grafana:
+            enabled: false
+            sidecar:
+              datasources:
+                isDefault: false
+          promtail:
+            enabled: true
+
+    - name: Install Vault in Dev Mode
+      kubernetes.core.helm:
+        name: vault
+        chart_ref: hashicorp/vault
+        release_namespace: vault
+        create_namespace: true
+        wait: true
+        state: present
+        values:
+          server:
+            dev:
+              enabled: true
+
+    - name: Apply ArgoCD root Application (App-of-Apps)
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ playbook_dir }}/../../gitops/argocd/root-app.yaml"
