@@ -1,9 +1,32 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+  namespace: default
+type: Opaque
+stringData:
+  POSTGRES_PASSWORD: "db-password-123" # Προσωρινό, θα πάει στο Vault
+---
+apiVersion: v1
+kind: Service
 metadata:
   name: postgres
-  namespace: idp-test-environment
+  namespace: default
 spec:
+  ports:
+  - port: 5432
+    targetPort: 5432
+  selector:
+    app: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: default
+spec:
+  serviceName: "postgres"
+  replicas: 1
   selector:
     matchLabels:
       app: postgres
@@ -16,22 +39,21 @@ spec:
       - name: postgres
         image: postgres:15
         env:
-        - name: POSTGRES_USER
-          value: idp_user
         - name: POSTGRES_PASSWORD
-          value: idp_pass
-        - name: POSTGRES_DB
-          value: idp_db
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: POSTGRES_PASSWORD
         ports:
         - containerPort: 5432
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: postgres
-  namespace: idp-test-environment
-spec:
-  selector:
-    app: postgres
-  ports:
-  - port: 5432
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 2Gi
