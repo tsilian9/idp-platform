@@ -1,0 +1,10 @@
+apiVersion: idp.platform.io/v1alpha1
+kind: Environment
+metadata:
+  name: my-env
+spec:
+  owner: "developer@company.com"
+  appName: "my-service"
+  tier: "dev"
+  database: true
+  replicas: 1
