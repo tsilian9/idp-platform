@@ -3,8 +3,11 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from sqlalchemy import text
+
 from app.config import settings
-from app.database import engine, Base
+from app.database import engine, Base, AsyncSessionLocal
+from app.api import endpoints, websockets
 
 logging.basicConfig(
     level=logging.DEBUG if settings.DEBUG else logging.INFO,
@@ -19,6 +22,9 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+app.include_router(endpoints.router)
+app.include_router(websockets.router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -52,5 +58,19 @@ async def healthz():
 
 @app.get("/readyz", tags=["Health"])
 async def readyz():
-    """Readiness probe — θα ελέγξει DB connectivity στο Task 2.5."""
-    return {"status": "ready"}
+    """
+    Readiness probe — ελέγχει αν η εφαρμογή είναι έτοιμη να δεχθεί traffic.
+    Κάνει πραγματικό SELECT 1 στη PostgreSQL.
+    """
+    try:
+        async with AsyncSessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+        return {"status": "ready", "db": "ok"}
+    except Exception as e:
+        logger.error("Readiness check failed: %s", e)
+        from fastapi import Response
+        return Response(
+            content='{"status": "not ready", "db": "unreachable"}',
+            status_code=503,
+            media_type="application/json",
+        )
